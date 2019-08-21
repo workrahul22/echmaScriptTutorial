@@ -15,7 +15,7 @@ Synchronous iteration was introduced with ES6 and works as follows:
 
 I’ll demonstrate via an Array:
 
-'''Javascript
+```JavaScript
 > const iterable = ['a', 'b'];
 > const iterator = iterable[Symbol.iterator]();
 > iterator.next()
@@ -24,17 +24,17 @@ I’ll demonstrate via an Array:
 { value: 'b', done: false }
 > iterator.next()
 { value: undefined, done: true }
-'''
+```
 
 ## Asynchronous iteration  
 
 The problem is that the previously explained way of iterating is synchronous, it doesn’t work for asynchronous sources of data. For example, in the following code, readLinesFromFile() cannot deliver its asynchronous data via synchronous iteration:
 
-'''Javascript
+```Javascript
 for (const line of readLinesFromFile(fileName)) {
     console.log(line);
 }
-'''
+```
 
 The proposal specifies a new protocol for iteration that works asynchronously:
 
@@ -45,7 +45,7 @@ You may wonder whether it would be possible to instead use a synchronous iterato
 
 Using an asynchronous iterable looks as follows. Function createAsyncIterable() is explained later. It converts its synchronously iterable parameter into an async iterable.
 
-'''Javascript
+```Javascript
 const asyncIterable = createAsyncIterable(['a', 'b']);
 const asyncIterator = asyncIterable[Symbol.asyncIterator]();
 asyncIterator.next()
@@ -60,11 +60,11 @@ asyncIterator.next()
 .then(iterResult3 => {
     console.log(iterResult3); // { value: undefined, done: true }
 });
-'''
+```
 
 Within an asynchronous function, you can process the results of the Promises via await and the code becomes simpler:
 
-'''Javascript
+```Javascript
 async function f() {
     const asyncIterable = createAsyncIterable(['a', 'b']);
     const asyncIterator = asyncIterable[Symbol.asyncIterator]();
@@ -75,13 +75,13 @@ async function f() {
     console.log(await asyncIterator.next());
         // { value: undefined, done: true }
 }
-'''
+```
 
 The interfaces for async iteration  
 
 In TypeScript notation, the interfaces look as follows.
 
-'''Javascript
+```Javascript
 interface AsyncIterable {
     [Symbol.asyncIterator]() : AsyncIterator;
 }
@@ -93,29 +93,29 @@ interface IteratorResult {
     value: any;
     done: boolean;
 }
-'''
+```
 
 # for-await-of  
 
 The proposal also specifies an asynchronous version of the for-of loop: for-await-of:
 
-'''Javascript
+```Javascript
 async function f() {
     for await (const x of createAsyncIterable(['a', 'b'])) {
         console.log(x);
     }
 }
-'''
 
 // Output:
 // a
 // b
+```
 
 ## for-await-of and rejections  
 
 Similarly to how await works in async functions, the loop throws an exception if next() returns a rejection:
 
-'''Javascript
+```Javascript
 function createRejectingIterable() {
     return {
         [Symbol.asyncIterator]() {
@@ -136,7 +136,7 @@ function createRejectingIterable() {
             // Error: Problem!
     }
 })(); // (B)
-'''
+```
 
 Note that we have just used an Immediately Invoked Async Function Expression (IIAFE, pronounced “yaffee”). It starts in line (A) and ends in line (B). We need to do that because for-of-await doesn’t work at the top level of modules and scripts. It does work everywhere where await can be used. Namely, in async functions and async generators (which are explained later).
 
@@ -144,16 +144,16 @@ Note that we have just used an Immediately Invoked Async Function Expression (II
 
 for-await-of can also be used to iterate over sync iterables:
 
-'''Javascript
+```Javascript
 (async function () {
     for await (const x of ['a', 'b']) {
         console.log(x);
     }
 })();
-'''
 // Output:
 // a
 // b
+```
 
 for-await-of converts each iterated value via Promise.resolve() to a Promise, which it then awaits. That means that it works for both Promises and normal values.
 Asynchronous generators  
@@ -162,13 +162,13 @@ Normal (synchronous) generators help with implementing synchronous iterables. As
 
 For example, we have previously used the function createAsyncIterable(syncIterable) which converts a syncIterable into an asynchronous iterable. This is how you would implement this function via an async generator:
 
-'''Javascript
+```Javascript
 async function* createAsyncIterable(syncIterable) {
     for (const elem of syncIterable) {
         yield elem;
     }
 }
-'''
+```
 
 Note the asterisk after function:
 
@@ -188,43 +188,43 @@ Use cases for calling next() several times without waiting for settlements inclu
 
 Use case: Retrieving Promises to be processed via Promise.all(). If you know how many elements there are in an async iterable, you don’t need to check done.
 
-'''Javascript
+```Javascript
 const asyncGenObj = createAsyncIterable(['a', 'b']);
 const [{value:v1},{value:v2}] = await Promise.all([
     asyncGenObj.next(), asyncGenObj.next()
 ]);
 console.log(v1, v2); // a b
-'''
+```
 
 Use case: Async generators as sinks for data, where you don’t always need to know when they are done.
 
-'''Javascript
+```Javascript
 const writer = openFile('someFile.txt');
 writer.next('hello'); // don’t wait
 writer.next('world'); // don’t wait
 await writer.return(); // wait for file to close
-'''
+```
 
 You can use await and for-await-of inside async generators. For example:
 
-'''Javascript
+```Javascript
 async function* prefixLines(asyncIterable) {
     for await (const line of asyncIterable) {
         yield '> ' + line;
     }
 }
-'''
+```
 
 One interesting aspect of combining await and yield is that await can’t stop yield from returning a Promise, but it can stop that Promise from being settled:
 
-'''Javascript
+```Javascript
 async function* asyncGenerator() {
     console.log('Start');
     const result = await doSomethingAsync(); // (A)
     yield 'Result: '+result; // (B)
     console.log('Done');
 }
-'''
+```
 
 Let’s take a closer look at line (A) and (B):
 
@@ -233,7 +233,7 @@ Let’s take a closer look at line (A) and (B):
 
 That means that these two lines correspond (roughly) to this code:
 
-'''Javascript
+```Javascript
 return new Promise((resolve, reject) => {
     doSomethingAsync()
     .then(result => {
@@ -243,11 +243,11 @@ return new Promise((resolve, reject) => {
         });
     });
 });
-'''
+```
 
 If you want to dig deeper – this is a rough approximation of how async generators work:
 
-'''Javascript
+```Javascript
 const BUSY = Symbol('BUSY');
 const COMPLETED = Symbol('COMPLETED');
 function asyncGenerator() {
@@ -311,14 +311,14 @@ function asyncGenerator() {
         }
     }
 }
-'''
+```
 
 This code assumes that next() is always called without arguments. A complete implementation would have to queue arguments, too.
 yield* in async generators  
 
 yield* in async generators works analogously to how it works in normal generators – like a recursive invocation:
 
-'''Javascript
+```Javascript
 async function* gen1() {
     yield 'a';
     yield 'b';
@@ -328,11 +328,11 @@ async function* gen2() {
     const result = yield* gen1(); // (A)
         // result === 2
 }
-'''
+```
 
 In line (A), gen2() calls gen1(), which means that all elements yielded by gen1() are yielded by gen2():
 
-'''Javascript
+```Javascript
 (async function () {
     for await (const x of gen2()) {
         console.log(x);
@@ -341,21 +341,21 @@ In line (A), gen2() calls gen1(), which means that all elements yielded by gen1(
 // Output:
 // a
 // b
-'''
+```
 
 The operand of yield* can be any async iterable. Sync iterables are automatically converted to async iterables, just like for for-await-of.
 Errors  
 
 In normal generators, next() can throw exceptions. In async generators, next() can reject the Promise it returns:
 
-'''Javascript
+```Javascript
 async function* asyncGenerator() {
     // The following exception is converted to a rejection
     throw new Error('Problem!');
 }
 asyncGenerator().next()
 .catch(err => console.log(err)); // Error: Problem!
-'''
+```
 
 Converting exceptions to rejections is similar to how async functions work.
 Async function vs. async generator function  
@@ -365,7 +365,7 @@ Async function vs. async generator function
     Returns immediately with a Promise.
     That Promise is fulfilled via return and rejected via throw.
 
-'''Javascript
+```Javascript
 (async function () {
     return 'hello';
 })()
@@ -375,21 +375,21 @@ Async function vs. async generator function
     throw new Error('Problem!');
 })()
 .catch(x => console.error(x)); // Error: Problem!
-'''
+```
 
 ### Async generator function:
 
     Returns immediately with an async iterable.
     Every invocation of next() returns a Promise. yield x fulfills the “current” Promise with {value: x, done: false}. throw err rejects the “current” Promise with err.
 
-'''Javascript
+```Javascript
 async function* gen() {
     yield 'hello';
 }
 const genObj = gen();
 genObj.next().then(x => console.log(x));
     // { value: 'hello', done: false }
-'''
+```
 
 Examples  
 
@@ -398,7 +398,7 @@ Using asynchronous iteration via Babel
 
 The example repo uses babel-node to run its code. This is how it configures Babel in its package.json:
 
-'''Javascript
+```Javascript
 {
   "dependencies": {
     "babel-preset-es2015-node": "···",
@@ -419,13 +419,13 @@ The example repo uses babel-node to run its code. This is how it configures Babe
   },
   ···
 }
-'''
+```
 
 Example: turning an async iterable into an Array  
 
 Function takeAsync() collects all elements of asyncIterable in an Array. I don’t use for-await-of in this case, I invoke the async iteration protocol manually. I also don’t close asyncIterable if I’m finished before the iterable is done.
 
-'''Javascript
+```Javascript
 /**
  * @returns a Promise for an Array with the elements
  * in `asyncIterable`
@@ -440,10 +440,11 @@ async function takeAsync(asyncIterable, count=Infinity) {
     }
     return result;
 }
-'''
+```
 
 This is the test for takeAsync():
-'''Javascript
+
+```Javascript
 test('Collect values yielded by an async generator', async function() {
     async function* gen() {
         yield 'a';
@@ -457,14 +458,14 @@ test('Collect values yielded by an async generator', async function() {
     assert.deepStrictEqual(await takeAsync(gen(), 1), ['a']);
     assert.deepStrictEqual(await takeAsync(gen(), 0), []);
 });
-'''
+```
 
 Note how nicely async functions work together with the mocha test framework: for asynchronous tests, the second parameter of test() can return a Promise.
 Example: a queue as an async iterable  
 
 The example repo also has an implementation for an asynchronous queue, called AsyncQueue. It’s implementation is relatively complex, which is why I don’t show it here. This is the test for AsyncQueue:
 
-'''Javascript
+```Javascript
 test('Enqueue before dequeue', async function() {
     const queue = new AsyncQueue();
     queue.enqueue('a');
@@ -482,7 +483,7 @@ test('Dequeue before enqueue', async function() {
         assert.deepStrictEqual(values, ['a', 'b']);
     });
 });
-'''
+```
 
 Example: reading text lines asynchronously  
 
@@ -490,7 +491,7 @@ Let’s implement code that reads text lines asynchronously. We’ll do it in th
 
 Step 1: read text data in chunks via the Node.js ReadStream API (which is based on callbacks) and push it into an AsyncQueue (which was introduced in the previous section).
 
-'''Javascript
+```Javascript
 /**
  * Creates an asynchronous ReadStream for the file whose name
  * is `fileName` and feeds it into an AsyncQueue that it returns.
@@ -511,11 +512,11 @@ function readFile(fileName) {
     });
     return queue;
 }
-'''
+```
 
 Step 2: Use for-await-of to iterate over the chunks of text and yield lines of text.
 
-'''Javascript
+```Javascript
 /**
  * Turns a sequence of text chunks into a sequence of lines
  * (where lines are separated by newlines)
@@ -537,11 +538,11 @@ async function* splitLines(chunksAsync) {
         yield previous;
     }
 }
-'''
+```
 
 Step 3: combine the two previous functions. We first feed chunks of text into a queue via readFile() and then convert that queue into an async iterable over lines of text via splitLines().
 
-'''Javascript
+```Javascript
 /**
  * @returns an async iterable
  */
@@ -550,29 +551,29 @@ function readLines(fileName) {
     const queue = readFile(fileName);
     return splitLines(queue);
 }
-'''
+```
 
 Lastly, this is how you’d use readLines() from within a Node.js script:
 
-'''Javascript
+```Javascript
 (async function () {
     const fileName = process.argv[2];
     for await (const line of readLines(fileName)) {
         console.log('>', line);
     }
 })();
-'''
+```
 
 WHATWG Streams are async iterables  
 
 WHATWG streams are async iterables, meaning that you can use for-await-of to process them:
 
-'''Javascript
+```Javascript
 const rs = openReadableStream();
 for await (const chunk of rs) {
     ···
 }
-'''
+```
 
 ### The specification of asynchronous iteration  
 
@@ -617,7 +618,7 @@ Alternative 1: Communicating Sequential Processes (CSP)
 
 The following code demonstrates the CSP library js-csp:
 
-'''Javascript
+```Javascript
 var csp = require('js-csp');
 
 function* player(name, table) {
@@ -644,7 +645,7 @@ csp.go(function* () {
   yield csp.timeout(1000); // wait
   table.close();
 });
-'''
+```
 
 player defines a “process” that is instantiated twice (in line (B) and in line (C), via csp.go()). The processes are connected via the “channel” table, which is created in line (A) and passed to player via its second parameter. A channel is basically a queue.
 
@@ -659,13 +660,13 @@ How does CSP compare to async iteration?
 
 The following code demonstrates Reactive Programming via the JavaScript library RxJS:
 
-'''Javascript
+```Javascript
 const button = document.querySelector('button');
 Rx.Observable.fromEvent(button, 'click') // (A)
   .throttle(1000) // at most one event per second
   .scan(count => count + 1, 0)
   .subscribe(count => console.log(`Clicked ${count} times`));
-'''
+```
 
 In line (A), we create a stream of click events via fromEvent(). These events are then filtered so that there is at most one event per second. Every time there is an event, scan() counts how many events there have been, so far. In the last line, we log all counts.
 
@@ -704,36 +705,36 @@ The rest operator (...) in object destructuring
 
 Inside object destructuring patterns, the rest operator (...) copies all enumerable own properties of the destructuring source into its operand, except those that were already mentioned in the object literal.
 
-'''Javascript
+```Javascript
 const obj = {foo: 1, bar: 2, baz: 3};
 const {foo, ...rest} = obj;
     // Same as:
     // const foo = 1;
     // const rest = {bar: 2, baz: 3};
-'''
+```
 
 If you are using object destructuring to handle named parameters, the rest operator enables you to collect all remaining parameters:
 
-'''Javascript
+```Javascript
 function func({param1, param2, ...rest}) { // rest operator
     console.log('All parameters: ',
         {param1, param2, ...rest}); // spread operator
     return param1 + param2;
 }
-'''
+```
 
 Syntactic restrictions  
 
 Per top level of each object literal, you can use the rest operator at most once and it must appear at the end:
 
-'''Javascript
+```Javascript
 const {...rest, foo} = obj; // SyntaxError
 const {foo, ...rest1, ...rest2} = obj; // SyntaxError
-'''
+```
 
 You can, however, use the rest operator several times if you nest it:
 
-'''Javascript
+```Javascript
 const obj = {
     foo: {
         a: 1,
@@ -748,34 +749,34 @@ const {foo: {a, ...rest1}, ...rest2} = obj;
 // const a = 1;
 // const rest1 = {b: 2, c: 3};
 // const rest2 = {bar: 4, baz: 5};
-'''
+```
 
 The spread operator (...) in object literals  
 
 Inside object literals, the spread operator (...) inserts all enumerable own properties of its operand into the object created via the literal:
 
-'''Javascript
+```Javascript
 > const obj = {foo: 1, bar: 2, baz: 3};
 > {...obj, qux: 4}
 { foo: 1, bar: 2, baz: 3, qux: 4 }
-'''
+```
 
 Note that order matters even if property keys don’t clash, because objects record insertion order:
 
-'''Javascript
+```Javascript
 > {qux: 4, ...obj}
 { qux: 4, foo: 1, bar: 2, baz: 3 }
-'''
+```
 
 If keys clash, order determines which entry “wins”:
 
-'''Javascript
+```Javascript
 > const obj = {foo: 1, bar: 2, baz: 3};
 > {...obj, foo: true}
 { foo: true, bar: 2, baz: 3 }
 > {foo: true, ...obj}
 { foo: 1, bar: 2, baz: 3 }
-'''
+```
 
 Common use cases for the object spread operator  
 
@@ -784,99 +785,99 @@ Cloning objects
 
 Cloning the enumerable own properties of an object obj:
 
-'''Javascript
+```Javascript
 const clone1 = {...obj};
 const clone2 = Object.assign({}, obj);
-'''
+```
 
 The prototypes of the clones are always Object.prototype, which is the default for objects created via object literals:
 
-'''Javascript
+```Javascript
 > Object.getPrototypeOf(clone1) === Object.prototype
 true
 > Object.getPrototypeOf(clone2) === Object.prototype
 true
 > Object.getPrototypeOf({}) === Object.prototype
 true
-'''
+```
 
 Cloning an object obj, including its prototype:
 
-'''Javascript
+```Javascript
 const clone1 = {__proto__: Object.getPrototypeOf(obj), ...obj};
 const clone2 = Object.assign(
     Object.create(Object.getPrototypeOf(obj)), obj);
-'''
+```
 
 Note that __proto__ inside object literals is only a mandatory feature in web browsers, not in JavaScript engines in general.
 True clones of objects  
 
 Sometimes you need to faithfully copy all own properties of an object obj and their attributes (writable, enumerable, ...), including getters and setters. Then Object.assign() and the spread operator don’t work. You need to use property descriptors:
 
-'''Javascript
+```Javascript
 const clone1 = Object.defineProperties({},
     Object.getOwnPropertyDescriptors(obj));
-'''
+```
 
 If you additionally want to preserve the prototype of obj, you can use Object.create():
 
-'''Javascript
+```Javascript
 const clone2 = Object.create(
     Object.getPrototypeOf(obj),
     Object.getOwnPropertyDescriptors(obj));
-'''
+```
 
 Object.getOwnPropertyDescriptors() is explained in “Exploring ES2016 and ES2017”.
 Pitfall: cloning is always shallow  
 
 Keep in mind that with all the ways of cloning that we have looked at, you only get shallow copies: If one of the original property values is an object, the clone will refer to the same object, it will not be (recursively, deeply) cloned itself:
 
-'''Javascript
+```Javascript
 const original = { prop: {} };
 const clone = Object.assign({}, original);
 
 console.log(original.prop === clone.prop); // true
 original.prop.foo = 'abc';
 console.log(clone.prop.foo); // abc
-'''
+```
 
 Various other use cases  
 
 Merging two objects obj1 and obj2:
 
-'''Javascript
+```Javascript
 const merged = {...obj1, ...obj2};
 const merged = Object.assign({}, obj1, obj2);
-'''
+```
 
 Filling in defaults for user data:
 
-'''Javascript
+```Javascript
 const DEFAULTS = {foo: 'a', bar: 'b'};
 const userData = {foo: 1};
 
 const data = {...DEFAULTS, ...userData};
 const data = Object.assign({}, DEFAULTS, userData);
     // {foo: 1, bar: 'b'}
-'''
+```
 
 Non-destructively updating property foo:
 
-'''Javascript
+```Javascript
 const obj = {foo: 'a', bar: 'b'};
 const obj2 = {...obj, foo: 1};
 const obj2 = Object.assign({}, obj, {foo: 1});
     // {foo: 1, bar: 'b'}
-'''
+```
 
 Specifying the default values for properties foo and bar inline:
 
-'''Javascript
+```Javascript
 const userData = {foo: 1};
 const data = {foo: 'a', bar: 'b', ...userData};
 const data = Object.assign({}, {foo:'a', bar:'b'}, userData);
     // {foo: 1, bar: 'b'}
-'''
+```
 
 Spreading objects versus Object.assign()  
 
@@ -904,27 +905,27 @@ Both operations use normal “get” operations to read property values from the
 
 Let’s look at an example:
 
-'''Javascript
+```Javascript
 const original = {
     get foo() {
         return 123;
     }
 };
-'''
+```
 
 original has the getter foo (its property descriptor has the properties get and set):
 
-'''Javascript
+```Javascript
 > Object.getOwnPropertyDescriptor(original, 'foo')
 { get: [Function: foo],
   set: undefined,
   enumerable: true,
   configurable: true }
-'''
+```
 
 But it its clones clone1 and clone2, foo is a normal data property (its property descriptor has the properties value and writable):
 
-'''Javascript
+```Javascript
 > const clone1 = {...original};
 > Object.getOwnPropertyDescriptor(clone1, 'foo')
 { value: 123,
@@ -938,7 +939,7 @@ But it its clones clone1 and clone2, foo is a normal data property (its property
   writable: true,
   enumerable: true,
   configurable: true }
-'''
+```
 
 Spread defines properties, Object.assign() sets them  
 
@@ -947,24 +948,24 @@ Targets with setters
 
 First, Object.assign() triggers setters, spread doesn’t:
 
-'''Javascript
+```Javascript
 Object.defineProperty(Object.prototype, 'foo', {
     set(value) {
         console.log('SET', value);
     },
 });
 const obj = {foo: 123};
-'''
+```
 
 The previous piece of code installs a setter foo that is inherited by all normal objects.
 
 If we clone obj via Object.assign(), the inherited setter is triggered:
 
-'''Javascript
+```Javascript
 > Object.assign({}, obj)
 SET 123
 {}
-'''
+```
 
 With spread, it isn’t:
 
@@ -976,12 +977,12 @@ Targets with read-only properties
 
 Second, you can stop Object.assign() from creating own properties via inherited read-only properties, but not the spread operator:
 
-'''Javascript
+```Javascript
 Object.defineProperty(Object.prototype, 'bar', {
     writable: false,
     value: 'abc',
 });
-'''
+```
 
 The previous piece of code installs the read-only property bar that is inherited by all normal objects.
 
@@ -993,9 +994,9 @@ TypeError: Cannot assign to read only property 'bar'
 
 In the following code, we successfully create the property bar via an object literal. This works, because object literals don’t set properties, they define them:
 
-'''Javascript
+```Javascript
 const obj = {bar: 123};
-'''
+```
 
 However, Object.assign() uses assignment for creating properties, which is why we can’t clone obj:
 
@@ -1013,7 +1014,7 @@ Both operations ignore all inherited properties and all non-enumerable own prope
 
 The following object obj inherits one (enumerable!) property from proto and has two own properties:
 
-'''Javascript
+```Javascript
 const proto = {
     inheritedEnumerable: 1,
 };
@@ -1027,7 +1028,7 @@ const obj = Object.create(proto, {
         enumerable: false,
     },
 });
-'''
+```
 
 If you clone obj, the result only has the property ownEnumerable. The properties inheritedEnumerable and ownNonEnumerable are not copied:
 
@@ -1053,14 +1054,14 @@ Prior to this proposal, all capture groups were accessed by number: the capture 
 
 For example, the following code shows how numbered capture groups are used to extract year, month and day from a date in ISO format:
 
-'''Javascript
+```Javascript
 const RE_DATE = /([0-9]{4})-([0-9]{2})-([0-9]{2})/;
 
 const matchObj = RE_DATE.exec('1999-12-31');
 const year = matchObj[1]; // 1999
 const month = matchObj[2]; // 12
 const day = matchObj[3]; // 31
-'''
+```
 
 Referring to capture groups via numbers has several disadvantages:
 
@@ -1081,30 +1082,30 @@ The captured strings are not properties of matchObj, because you don’t want th
 
 Let’s rewrite the previous code so that it uses named capture groups:
 
-'''Javascript
+```Javascript
 const RE_DATE = /(?<year>[0-9]{4})-(?<month>[0-9]{2})-(?<day>[0-9]{2})/;
 
 const matchObj = RE_DATE.exec('1999-12-31');
 const year = matchObj.groups.year; // 1999
 const month = matchObj.groups.month; // 12
 const day = matchObj.groups.day; // 31
-'''
+```
 
 Named capture groups also create indexed entries; as if they were numbered capture groups:
 
-'''Javascript
+```Javascript
 const year2 = matchObj[1]; // 1999
 const month2 = matchObj[2]; // 12
 const day2 = matchObj[3]; // 31
-'''
+```
 
 Destructuring can help with getting data out of the match object:
 
-'''Javascript
+```Javascript
 const {groups: {day, year}} = RE_DATE.exec('1999-12-31');
 console.log(year); // 1999
 console.log(day); // 31
-'''
+```
 
 Named capture groups have the following benefits:
 
@@ -1118,27 +1119,27 @@ Backreferences
 
 \k<name> in a regular expression means: match the string that was previously matched by the named capture group name. For example:
 
-'''Javascript
+```Javascript
 const RE_TWICE = /^(?<word>[a-z]+)!\k<word>$/;
 RE_TWICE.test('abc!abc'); // true
 RE_TWICE.test('abc!ab'); // false
-'''
+```
 
 The backreference syntax for numbered capture groups works for named capture groups, too:
 
-'''Javascript
+```Javascript
 const RE_TWICE = /^(?<word>[a-z]+)!\1$/;
 RE_TWICE.test('abc!abc'); // true
 RE_TWICE.test('abc!ab'); // false
-'''
+```
 
 You can freely mix both syntaxes:
 
-'''Javascript
+```Javascript
 const RE_TWICE = /^(?<word>[a-z]+)!\k<word>!\1$/;
 RE_TWICE.test('abc!abc!abc'); // true
 RE_TWICE.test('abc!abc!ab'); // false
-'''
+```
 
 replace() and named capture groups  
 
@@ -1146,23 +1147,23 @@ The string method replace() supports named capture groups in two ways.
 
 First, you can mention their names in the replacement string:
 
-'''Javascript
+```Javascript
 const RE_DATE = /(?<year>[0-9]{4})-(?<month>[0-9]{2})-(?<day>[0-9]{2})/;
 console.log('1999-12-31'.replace(RE_DATE,
     '$<month>/$<day>/$<year>'));
     // 12/31/1999
-'''
+```
 
 Second, each replacement function receives an additional parameter that holds an object with data captured via named groups. For example (line A):
 
-'''Javascript
+```JavaScript
 const RE_DATE = /(?<year>[0-9]{4})-(?<month>[0-9]{2})-(?<day>[0-9]{2})/;
 console.log('1999-12-31'.replace(
     RE_DATE,
     (g0,y,m,d,offset,input, {year, month, day}) => // (A)
         month+'/'+day+'/'+year));
     // 12/31/1999
-'''
+```
 
 These are the parameters of the callback in line A:
 
@@ -1174,21 +1175,21 @@ These are the parameters of the callback in line A:
 
 The following code shows another way of accessing the last argument:
 
-'''Javascript
+```JavaScript
 console.log('1999-12-31'.replace(RE_DATE,
     (...args) => {
         const {year, month, day} = args[args.length-1];
         return month+'/'+day+'/'+year;
     }));
     // 12/31/1999
-'''
+```
 
 We receive all arguments via the rest parameter args. The last element of the Array args is the object with the data from the named groups. We access it via the index args.length-1.
 Named groups that don’t match  
 
 If an optional named group does not match, its property is set to undefined (but still exists):
 
-'''Javascript
+```JavaScript
 const RE_OPT_A = /^(?<as>a+)?$/;
 const matchObj = RE_OPT_A.exec('');
 
@@ -1200,7 +1201,7 @@ console.log(matchObj.groups.as === undefined); // true
 
 // But property `as` exists:
 console.log('as' in matchObj.groups); // true
-'''
+```
 
 Implementations  
 
@@ -1620,12 +1621,12 @@ How does it work?
 
 .finally() works as follows:
 
-'''Javascript
+```JavaScript
 promise
 .then(result => {···})
 .catch(error => {···})
 .finally(() => {···});
-'''
+```
 
 finally’s callback is always executed. Compare:
 
@@ -1634,16 +1635,16 @@ finally’s callback is always executed. Compare:
 
 In other words: Take the following piece of code.
 
-'''Javascript
+```JavaScript
 promise
 .finally(() => {
     «statements»
 });
-'''
+```
 
 This piece of code is equivalent to:
 
-'''Javascript
+```JavaScript
 promise
 .then(
     result => {
@@ -1655,7 +1656,7 @@ promise
         throw error;
     }
 );
-'''
+```
 
 Use case  
 
@@ -1663,7 +1664,7 @@ The most common use case is similar to the most common use case of the synchrono
 
 For example:
 
-'''Javascript
+```JavaScript
 let connection;
 db.open()
 .then(conn => {
@@ -1681,7 +1682,7 @@ db.open()
 .finally(() => {
     connection.close();
 });
-'''
+```
 
 .finally() is similar to finally {} in synchronous code  
 
@@ -1725,14 +1726,14 @@ String.raw is a so-called tag function. Tag functions receive two versions of th
 
 The following tag function illustrates how that works:
 
-'''Javascript
+```JavaScript
 function tagFunc(tmplObj, substs) {
     return {
         Cooked: tmplObj,
         Raw: tmplObj.raw,
     };
 }
-'''
+```
 
 Using the tag function:
 
