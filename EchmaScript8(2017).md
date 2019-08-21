@@ -62,6 +62,7 @@ Shared Array Buffers are a primitive building block for higher-level concurrency
 
 Creating and sending a Shared Array Buffer  
 
+```JavaScript
 // main.js
 
 const worker = new Worker('worker.js');
@@ -75,6 +76,7 @@ worker.postMessage({sharedBuffer}); // clone
 
 // Local only
 const sharedArray = new Int32Array(sharedBuffer); // (B)
+```
 
 You create a Shared Array Buffer the same way you create a normal Array Buffer: by invoking the constructor and specifying the size of the buffer in bytes (line A). What you share with workers is the buffer. For your own, local, use, you normally wrap Shared Array Buffers in Typed Arrays (line B).
 
@@ -87,6 +89,7 @@ Receiving a Shared Array Buffer
 
 The implementation of the worker looks as follows.
 
+```JavaScript
 // worker.js
 
 self.addEventListener('message', function (event) {
@@ -95,6 +98,7 @@ self.addEventListener('message', function (event) {
 
     // ···
 });
+```
 
 We first extract the Shared Array Buffer that was sent to us and then wrap it in a Typed Array (line A), so that we can use it locally.
 Atomics: safely accessing shared data  
@@ -108,22 +112,28 @@ while (sharedArray[0] === 123) ;
 
 In a single thread, the value of sharedArray[0] never changes while the loop runs (if sharedArray is an Array or Typed Array that wasn’t patched in some manner). Therefore, the code can be optimized as follows:
 
+```JavaScript
 const tmp = sharedArray[0];
 while (tmp === 123) ;
+```
 
 However, in a multi-threaded setting, this optimization prevents us from using this pattern to wait for changes made in another thread.
 
 Another example is the following code:
 
+```JavaScript
 // main.js
 sharedArray[1] = 11;
 sharedArray[2] = 22;
+```
 
 In a single thread, you can rearrange these write operations, because nothing is read in-between. For multiple threads, you get into trouble whenever you expect the writes to be done in a specific order:
 
+```JavaScript
 // worker.js
 while (sharedArray[2] !== 22) ;
 console.log(sharedArray[1]); // 0 or 11
+```
 
 These kinds of optimizations make it virtually impossible to synchronize the activity of multiple workers operating on the same Shared Array Buffer.
 Solution: atomics  
@@ -140,6 +150,7 @@ The idea is to use normal operations to read and write most data, while Atomics 
 
 This is a very simple example that always works, thanks to Atomics (I’ve omitted setting up sharedArray):
 
+```JavaScript
 // main.js
 console.log('notifying...');
 Atomics.store(sharedArray, 0, 123);
@@ -147,6 +158,7 @@ Atomics.store(sharedArray, 0, 123);
 // worker.js
 while (Atomics.load(sharedArray, 0) !== 123) ;
 console.log('notified');
+```
 
 Use case: waiting to be notified  
 
@@ -231,6 +243,7 @@ Using a shared lock
 
 In the main thread, we set up shared memory so that it encodes a closed lock and send it to a worker (line A). Once the user clicks, we open the lock (line B).
 
+```JavaScript
 // main.js
 
 // Set up the shared memory
@@ -250,9 +263,11 @@ document.getElementById('unlock').addEventListener(
         event.preventDefault();
         lock.unlock(); // (B)
     });
+```
 
 In the worker, we set up a local version of the lock (whose state is shared with the main thread via a Shared Array Buffer). In line B, we wait until the lock is unlocked. In lines A and C, we send text to the main thread, which displays it on the page for us (how it does that is not shown in the previous code fragment). That is, we are using self.postMessage() much like console.log() in these two lines.
 
+```JavaScript
 // worker.js
 
 self.addEventListener('message', function (event) {
@@ -263,6 +278,7 @@ self.addEventListener('message', function (event) {
     lock.lock(); // (B) blocks!
     self.postMessage('Unlocked'); // (C)
 });
+```
 
 It is noteworthy that waiting for the lock in line B stops the complete worker. That is real blocking, which hasn’t existed in JavaScript until now (await in async functions is an approximation).
 Implementing a shared lock  
@@ -276,6 +292,7 @@ In this section, we’ll need (among others) the following Atomics function:
 
 The implementation starts with a few constants and the constructor:
 
+```JavaScript
 const UNLOCKED = 0;
 const LOCKED_NO_WAITERS = 1;
 const LOCKED_POSSIBLE_WAITERS = 2;
@@ -320,6 +337,7 @@ lock() {
         UNLOCKED, LOCKED_POSSIBLE_WAITERS)) !== UNLOCKED);
     }
 }
+```
 
 In line A, we change the lock to LOCKED_NO_WAITERS if its current value is UNLOCKED. We only enter the then-block if the lock is already locked (in which case compareExchange() did not change anything).
 
@@ -330,7 +348,7 @@ In line C, we wait if the lock value is LOCKED_POSSIBLE_WAITERS. The last parame
 After waking up, we continue the loop if we are not unlocked. compareExchange() also switches to LOCKED_POSSIBLE_WAITERS if the lock is UNLOCKED. We use LOCKED_POSSIBLE_WAITERS and not LOCKED_NO_WAITERS, because we need to restore this value after unlock() temporarily set it to UNLOCKED and woke us up.
 
 The method for unlocking looks as follows.
-
+```JavaScript
 
     /**
      * Unlock a lock that is held.  Anyone can unlock a lock that
@@ -350,6 +368,7 @@ The method for unlocking looks as follows.
 
     // ···
 }
+```
 
 In line A, v0 gets the value that iab[stateIdx] had before 1 was subtracted from it. The subtraction means that we go (e.g.) from LOCKED_NO_WAITERS to UNLOCKED and from LOCKED_POSSIBLE_WAITERS to LOCKED.
 
@@ -496,6 +515,7 @@ Properties, whose keys are symbols, are ignored:
 
 Object.entries() finally gives us a way to iterate over the properties of an object (read here why objects aren’t iterable by default):
 
+```JavaScript
 let obj = { one: 1, two: 2 };
 for (let [k,v] of Object.entries(obj)) {
     console.log(`${JSON.stringify(k)}: ${JSON.stringify(v)}`);
@@ -503,17 +523,20 @@ for (let [k,v] of Object.entries(obj)) {
 // Output:
 // "one": 1
 // "two": 2
+```
 
 Setting up Maps via Object.entries()  
 
 Object.entries() also lets you set up a Map via an object. This is more concise than using an Array of 2-element Arrays, but keys can only be strings.
 
+```JavaScript
 let map = new Map(Object.entries({
     one: 1,
     two: 2,
 }));
 console.log(JSON.stringify([...map]));
     // [["one",1],["two",2]]
+```
 
 FAQ: Object.entries()  
 
@@ -582,6 +605,7 @@ A simple implementation of padStart()
 
 The following implementation gives you a rough idea of how padStart() works, but isn’t completely spec-compliant (for a few edge cases).
 
+```JavaScript
 String.prototype.padStart =
 function (maxLength, fillString=' ') {
     let str = String(this);
@@ -603,6 +627,7 @@ function (maxLength, fillString=' ') {
 };
 
 String.prototype.padEnd(maxLength, fillString=' ')  
+```
 
 padEnd() works similarly to padStart(), but instead of inserting the repeated fillString at the start, it inserts it at the end:
 
@@ -644,6 +669,7 @@ Property descriptors describe the attributes of a property (its value, whether i
 
 This is an example of using Object.getOwnPropertyDescriptors():
 
+```JavaScript
 const obj = {
     [Symbol('foo')]: 123,
     get bar() { return 'abc' },
@@ -661,9 +687,11 @@ console.log(Object.getOwnPropertyDescriptors(obj));
 //      set: undefined,
 //      enumerable: true,
 //      configurable: true } }
+```
 
 This is how you would implement Object.getOwnPropertyDescriptors():
 
+```JavaScript
 function getOwnPropertyDescriptors(obj) {
     const result = {};
     for (let key of Reflect.ownKeys(obj)) {
@@ -671,6 +699,7 @@ function getOwnPropertyDescriptors(obj) {
     }
     return result;
 }
+```
 
 Use cases for Object.getOwnPropertyDescriptors()  
 Use case: copying properties into an object  
@@ -682,6 +711,7 @@ target[key] = value; // set
 
 That means that it doesn’t properly copy properties with non-default attributes (getters, setters, non-writable properties, etc.). The following example illustrates this limitation. The object source has a getter whose key is foo:
 
+```JavaScript
 const source = {
     set foo(value) {
         console.log(value);
@@ -692,9 +722,11 @@ console.log(Object.getOwnPropertyDescriptor(source, 'foo'));
 //   set: [Function: foo],
 //   enumerable: true,
 //   configurable: true }
+```
 
 Using Object.assign() to copy property foo to object target fails:
 
+```JavaScript
 const target1 = {};
 Object.assign(target1, source);
 console.log(Object.getOwnPropertyDescriptor(target1, 'foo'));
@@ -702,9 +734,11 @@ console.log(Object.getOwnPropertyDescriptor(target1, 'foo'));
 //   writable: true,
 //   enumerable: true,
 //   configurable: true }
+```
 
 Fortunately, using Object.getOwnPropertyDescriptors() together with Object.defineProperties() works:
 
+```JavaScript
 const target2 = {};
 Object.defineProperties(target2, Object.getOwnPropertyDescriptors(source));
 console.log(Object.getOwnPropertyDescriptor(target2, 'foo'));
@@ -712,6 +746,7 @@ console.log(Object.getOwnPropertyDescriptor(target2, 'foo'));
 //   set: [Function: foo],
 //   enumerable: true,
 //   configurable: true }
+```
 
 Use case: cloning objects  
 
@@ -729,33 +764,41 @@ Use case: cross-platform object literals with arbitrary prototypes
 
 The syntactically nicest way of using an object literal to create an object with an arbitrary prototype prot is to use the special property __proto__:
 
+```JavaScript
 const obj = {
     __proto__: prot,
     foo: 123,
 };
+```
 
 Alas, that feature is only guaranteed to be there in browsers. The common work-around is Object.create() and assignment:
 
+```JavaScript
 const obj = Object.create(prot);
 obj.foo = 123;
+```
 
 But you can also use Object.getOwnPropertyDescriptors():
 
+```JavaScript
 const obj = Object.create(
     prot,
     Object.getOwnPropertyDescriptors({
         foo: 123,
     })
 );
+```
 
 Another alternative is Object.assign():
 
+```JavaScript
 const obj = Object.assign(
     Object.create(prot),
     {
         foo: 123,
     }
 );
+```
 
 Pitfall: copying methods that use super  
 
@@ -784,19 +827,23 @@ Trailing commas in object literals and Array literals
 
 Trailing commas are ignored in object literals:
 
+```JavaScript
 let obj = {
     first: 'Jane',
     last: 'Doe',
 };
+```
 
 And they are also ignored in Array literals:
 
+```JavaScript
 let arr = [
     'red',
     'green',
     'blue',
 ];
 console.log(arr.length); // 3
+```
 
 Why is that useful? There are two benefits.
 
@@ -822,17 +869,21 @@ Given the benefits of optional and ignored trailing commas, the proposed feature
 
 For example, the following function declaration causes a SyntaxError in ECMAScript 6, but would be legal with the proposal:
 
+```JavaScript
 function foo(
     param1,
     param2,
 ) {}
+```
 
 Similarly, the proposal would make this invocation of foo() syntactically legal:
 
+```JavaScript
 foo(
     'abc',
     'def',
 );
+```
 
 ES proposal: Shared memory and atomics
 [2017-01-26] dev, javascript, esnext, es proposal, concurrency
@@ -920,6 +971,7 @@ Receiving a Shared Array Buffer
 
 The implementation of the worker looks as follows.
 
+```JavaScript
 // worker.js
 
 self.addEventListener('message', function (event) {
@@ -928,6 +980,7 @@ self.addEventListener('message', function (event) {
 
     // ···
 });
+```
 
 We first extract the Shared Array Buffer that was sent to us and then wrap it in a Typed Array (line A), so that we can use it locally.
 Atomics: safely accessing shared data  
@@ -941,22 +994,28 @@ while (sharedArray[0] === 123) ;
 
 In a single thread, the value of sharedArray[0] never changes while the loop runs (if sharedArray is an Array or Typed Array that wasn’t patched in some manner). Therefore, the code can be optimized as follows:
 
+```JavaScript
 const tmp = sharedArray[0];
 while (tmp === 123) ;
+```
 
 However, in a multi-threaded setting, this optimization prevents us from using this pattern to wait for changes made in another thread.
 
 Another example is the following code:
 
+```JavaScript
 // main.js
 sharedArray[1] = 11;
 sharedArray[2] = 22;
+```
 
 In a single thread, you can rearrange these write operations, because nothing is read in-between. For multiple threads, you get into trouble whenever you expect the writes to be done in a specific order:
 
+```JavaScript
 // worker.js
 while (sharedArray[2] !== 22) ;
 console.log(sharedArray[1]); // 0 or 11
+```
 
 These kinds of optimizations make it virtually impossible to synchronize the activity of multiple workers operating on the same Shared Array Buffer.
 Solution: atomics  
@@ -973,6 +1032,7 @@ The idea is to use normal operations to read and write most data, while Atomics 
 
 This is a very simple example that always works, thanks to Atomics (I’ve omitted setting up sharedArray):
 
+```JavaScript
 // main.js
 console.log('notifying...');
 Atomics.store(sharedArray, 0, 123);
@@ -980,6 +1040,7 @@ Atomics.store(sharedArray, 0, 123);
 // worker.js
 while (Atomics.load(sharedArray, 0) !== 123) ;
 console.log('notified');
+```
 
 Use case: waiting to be notified  
 
@@ -1064,6 +1125,7 @@ Using a shared lock
 
 In the main thread, we set up shared memory so that it encodes a closed lock and send it to a worker (line A). Once the user clicks, we open the lock (line B).
 
+```JavaScript
 // main.js
 
 // Set up the shared memory
@@ -1083,9 +1145,11 @@ document.getElementById('unlock').addEventListener(
         event.preventDefault();
         lock.unlock(); // (B)
     });
+```
 
 In the worker, we set up a local version of the lock (whose state is shared with the main thread via a Shared Array Buffer). In line B, we wait until the lock is unlocked. In lines A and C, we send text to the main thread, which displays it on the page for us (how it does that is not shown in the previous code fragment). That is, we are using self.postMessage() much like console.log() in these two lines.
 
+```JavaScript
 // worker.js
 
 self.addEventListener('message', function (event) {
@@ -1096,6 +1160,7 @@ self.addEventListener('message', function (event) {
     lock.lock(); // (B) blocks!
     self.postMessage('Unlocked'); // (C)
 });
+```
 
 It is noteworthy that waiting for the lock in line B stops the complete worker. That is real blocking, which hasn’t existed in JavaScript until now (await in async functions is an approximation).
 Implementing a shared lock  
@@ -1109,6 +1174,7 @@ In this section, we’ll need (among others) the following Atomics function:
 
 The implementation starts with a few constants and the constructor:
 
+```JavaScript
 const UNLOCKED = 0;
 const LOCKED_NO_WAITERS = 1;
 const LOCKED_POSSIBLE_WAITERS = 2;
@@ -1127,11 +1193,13 @@ class Lock {
         this.iab = iab;
         this.ibase = ibase;
     }
+```
 
 The constructor mainly stores its parameters in instance properties.
 
 The method for locking looks as follows.
 
+```JavaScript
 /**
  * Acquire the lock, or block until we can. Locking is not recursive:
  * you must not hold the lock when calling this.
@@ -1153,6 +1221,7 @@ lock() {
         UNLOCKED, LOCKED_POSSIBLE_WAITERS)) !== UNLOCKED);
     }
 }
+```
 
 In line A, we change the lock to LOCKED_NO_WAITERS if its current value is UNLOCKED. We only enter the then-block if the lock is already locked (in which case compareExchange() did not change anything).
 
@@ -1164,6 +1233,7 @@ After waking up, we continue the loop if we are not unlocked. compareExchange() 
 
 The method for unlocking looks as follows.
 
+```JavaScript
 
     /**
      * Unlock a lock that is held.  Anyone can unlock a lock that
@@ -1183,6 +1253,7 @@ The method for unlocking looks as follows.
 
     // ···
 }
+```
 
 In line A, v0 gets the value that iab[stateIdx] had before 1 was subtracted from it. The subtraction means that we go (e.g.) from LOCKED_NO_WAITERS to UNLOCKED and from LOCKED_POSSIBLE_WAITERS to LOCKED.
 
@@ -1301,3 +1372,77 @@ Background on parallelism:
     “Concurrency is not parallelism” by Rob Pike [Pike uses the terms “concurrency” and “parallelism” slightly differently than I do in this blog post, providing an interesting complementary view]
 
 Acknowledgement: I’m very grateful to Lars T. Hansen for reviewing this blog post and for answering my SharedArrayBuffer-related questions.
+
+ES proposal: async functions
+[2016-02-01] dev, javascript, esnext, es proposal, async, promises
+(Ad, please don’t block)
+
+Async functions are an ECMAScript proposal by Brian Terlson. It is at stage 3 (candidate).
+
+Before I can explain async functions, I need to explain how Promises and generators can be combined to perform asynchronous operations via synchronous-looking code.
+Writing async code via Promises and generators  
+
+For functions that compute their one-off results asynchronously, Promises, which are part of ES6, are becoming increasingly popular. One example is the client-side fetch API, which is an alternative to XMLHttpRequest for retrieving files. Using it looks as follows:
+
+```JavaScript
+function fetchJson(url) {
+    return fetch(url)
+    .then(request => request.text())
+    .then(text => {
+        return JSON.parse(text);
+    })
+    .catch(error => {
+        console.log(`ERROR: ${error.stack}`);
+    });
+}
+fetchJson('http://example.com/some_file.json')
+.then(obj => console.log(obj));
+```
+
+co is a library that uses Promises and generators to enable a coding style that looks more synchronous, but works the same as the style used in the previous example:
+
+```JavaScript
+const fetchJson = co.wrap(function* (url) {
+    try {
+        let request = yield fetch(url);
+        let text = yield request.text();
+        return JSON.parse(text);
+    }
+    catch (error) {
+        console.log(`ERROR: ${error.stack}`);
+    }
+});
+```
+
+Every time the callback (a generator function!) yields a Promise to co, the callback gets suspended. Once the Promise is settled, co resumes the callback: if the Promise was fulfilled, yield returns the fulfillment value, if it was rejected, yield throws the rejection error. Additionally, co promisifies the result returned by the callback (similarly to how then() does it).
+Async functions  
+
+Async functions are basically dedicated syntax for what co does:
+
+```JavaScript
+async function fetchJson(url) {
+    try {
+        let request = await fetch(url);
+        let text = await request.text();
+        return JSON.parse(text);
+    }
+    catch (error) {
+        console.log(`ERROR: ${error.stack}`);
+    }
+}
+```
+
+Internally, async functions work much like generators, but they are not translated to generator functions.
+Variants  
+
+The following variants of async functions exist:
+
+    Async function declarations: async function foo() {}
+    Async function expressions: const foo = async function () {};
+    Async method definitions: let obj = { async foo()
+    Async arrow functions: const foo = async () => {};
+
+Further reading  
+
+    Async Functions (Brian Terlson)
+    Simplifying asynchronous computations via generators (section in “Exploring ES6”)
