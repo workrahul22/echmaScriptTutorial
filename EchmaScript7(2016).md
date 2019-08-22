@@ -1,5 +1,9 @@
 
-The includes() method determines whether an array includes a certain value among its entries, returning true or false as appropriate.
+## includes() method 
+
+this method determines whether an array includes a certain value among its entries, returning true or false as appropriate.
+
+### Example
 
 ```JavaScript
 var array1 = [1, 2, 3];
@@ -16,17 +20,11 @@ console.log(pets.includes('at'));
 // expected output: false
 ```
 
-Syntax
-Section
-
+### Syntex
 arr.includes(valueToFind[, fromIndex])
 
-Parameters
-Section
-
-valueToFind
-
-    The value to search for.
+### Parameters
+    - valueToFind : The value to search for.
 
     Note: When comparing strings and characters, includes() is case-sensitive.
 fromIndex Optional
@@ -96,7 +94,7 @@ ES2016 feature: exponentiation operator (**)
 (Ad, please don’t block)
 
 The exponentiation operator (**) is an ECMAScript proposal by Rick Waldron. It is at stage 4 (finished) and part of ECMAScript 2016.
-An infix operator for exponentiation  
+## An infix operator for exponentiation  
 
 ### ** is an infix operator for exponentiation:
 
@@ -105,8 +103,9 @@ x ** y
 ```
 
 produces the same result as
-
+```Javascript
 Math.pow(x, y)
+```
 
 Examples:
 
