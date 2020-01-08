@@ -10,6 +10,19 @@ If you have a posts collection containing blog posts, and if you regularly issue
 
 For single-field indexes, the selection between ascending and descending order is immaterial. For compound indexes, the selection is important.
 
+The db.collection.createIndex method only creates an index of the same specification does not already exist.
+
+Mongodb indexes use a B-tree data structure.
+
+You can create indexes with custom name.
+
+> db.products.createIndex(
+>	{ item:1, quantity: -1},
+>	{name:"query for inventory"}
+>)
+
+you can view index names using the db.collection.getIndexes() method. You cannot rename an index once created. Instead, you must drop and re-create the index with a new name.
+
 ### Single Index:
 
 > db.users.createIndex({ email: 1})
@@ -113,30 +126,30 @@ Always use $limit before $skip in aggregation pipeline.
 Always create an index on the foreignField attributes in $lookup, unless the collection are trivial size.
 If $unwind follows immediately after $lookup, then use $unwind in $lookup.
 
-{
-	$lookup: {
-		from: "otherCollection",
-		as: "resultingArrays",
-		localField: 'x',
-		foreignField: "y",
-		unwinding: {preserveNullAndEmptyArrays: false}
-	}
-}
+>{
+>	$lookup: {
+>		from: "otherCollection",
+>		as: "resultingArrays",
+>		localField: 'x',
+>		foreignField: "y",
+>		unwinding: {preserveNullAndEmptyArrays: false}
+>	}
+>}
 
 ### AllowDiskUse in aggregate
 
 AllowDiskUse: true, aggregation operations can write data to the _tmp subdirectory in the Database Path directory. It is used to perform the large query on temp directory.
 
 > db.orders.aggregate(
-	[
-		{$match:{status:"A"}},
-		{$group:{_id:"$cust_id", total:{$sum:"$amount"}}},
-		{$sort:{tatal:-1}}
-	],
-	{
-		allowDiskUse: true
-	}
-)
+>	[
+>		{$match:{status:"A"}},
+>		{$group:{_id:"$cust_id", total:{$sum:"$amount"}}},
+>		{$sort:{tatal:-1}}
+>	],
+>	{
+>		allowDiskUse: true
+>	}
+>)
 
 ## Rebuild the index on collection:
 
@@ -180,23 +193,54 @@ Main point that we have to take care on above explanation:
 
 The explain() method can be used in many ways like below.
 
-db.orders.aggregate(
-    [
-        { $match: { status: "A" } },
-        { $group: { _id: "$custId", total: { $sum: "$amount" } } },
-        { $sort: { total: -1 } }
-    ],
-    {explain: true}
-);
+>db.orders.aggregate(
+>    [
+>        { $match: { status: "A" } },
+>        { $group: { _id: "$custId", total: { $sum: "$amount" } } },
+>        { $sort: { total: -1 } }
+>    ],
+>    {explain: true}
+>);
 
-db.orders.explain("executionStats").aggregate(
-    [
-        {$match: {status: "A", amount: {$gt: 300}}}
-    ]
-);
+>db.orders.explain("executionStats").aggregate(
+>    [
+>        {$match: {status: "A", amount: {$gt: 300}}}
+>    ]
+>);
 
-db.orders.explain("executionStats").aggregate(
-    [
-        {$match: {status: "A", amount: {$gt: 300}}}
-    ]
-);
+>db.orders.explain("executionStats").aggregate(
+>    [
+>        {$match: {status: "A", amount: {$gt: 300}}}
+>    ]
+>);
+
+## Check Your Mongodb log
+
+By default, Mongodb records all queries which take longer than 100 milliseconds. Its location is defined in your configuration's systemLog.path setting, and it's normally /var/log/mongodb/mongod.log in Debian based distribution such as ubuntu.
+
+The log file can be large, so you may want to clear it before profiling. From the mongo command-line console, enter.
+
+> use admin;
+> db.runCommand({logRotate:1});
+
+A new log file will be started and the old data will be available in file named with the backup date and time. You can delete the backup or move it elsewhere for further analysis.
+
+## Create Two or more connection objects.
+
+Performance can be improved by defining more than one database connection object. For example
+
+1. one to handle the majority of fast queries
+2. one to handle slower document inserts and updates.
+3. one to handle complex report generation.
+
+Each object is treated as a separate database client and will not delay the processing of others. The application should remain responsive.
+
+## Set Maximum Execution Times
+
+MongoDb commands run as long as they need. A slowly executing query can hold up others, and your web application may eventually time out. This can throw various strange instability problems in Nodejs programs, which happily continue to wait for an asynchronous callback.
+
+You can specify a time limit in milliseconds using maxTimeMS() 
+
+> db.user.find({city:/^A.+/i}).maxTimeMS(100);
+
+You should set a reasonable maxTimeMS value for any command which is likely to take considerable time. Unfortunately, Mongodb doesn't allow you to define a global timeout value, and it must be set for individual queries ( although some libraries may apply a default automatically).
